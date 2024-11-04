@@ -9,11 +9,12 @@ function SmoothData()
 % v1.7 | add resize/home/zoomx/zoomy...
 % v1.8 | new function to do auto calculation, do not require toolbox
 % v1.9 | output selected indx and ripple
+% v1.91| Add select range, frequency response
 %
 warning off;
 %% Figure
 f= figure('Units','normalized','Position',[0.1,0.1,0.8,0.8], ...
-    'MenuBar','none','ToolBar','none','NumberTitle','off', ...
+    'MenuBar','figure','ToolBar','none','NumberTitle','off', ...
     'Name','Data Smooth','CloseRequestFcn',@closefig);
 
 %% Axes
@@ -24,7 +25,7 @@ ylabel('Data','FontWeight','bold')
 
 %% Pannel
 datapannel = uipanel('Parent',f,'Units','normalized',...
-    'Position',[0.28,0.85,0.20,0.06]);
+    'Position',[0.28-0.1,0.85,0.20,0.06]);
 parapannel = uipanel('Parent',f,'Units','normalized',...
     'Position',[0.51,0.8357,0.4531,0.073],...
     'Title','parameters','FontUnits','normalized',...
@@ -35,6 +36,10 @@ linepannel = uipanel('Parent',f,'Units','normalized',...
     'Position',[0.51,0.9135,0.29,0.073],...
     'Title','linewidth','FontUnits','normalized',...
     'FontWeight','bold','FontSize',0.2);
+freqpannel = uipanel('Parent',f,'Units','normalized',...
+    'Position',[0.387,0.835,0.1165,0.15],...
+    'Title','cutoff freq','FontUnits','normalized',...
+    'FontWeight','bold','FontSize',0.1);
 
 %% Var selection
 varsname = ['Select';evalin('base', 'who')];
@@ -47,6 +52,19 @@ txt1 = uicontrol(datapannel,"Style",'text','Units','normalized',...
     'Position',[0.1,0.1,0.2,0.6],'FontUnits','normalized',...
     'FontSize',0.6,'HorizontalAlignment','center','FontWeight','bold');
 txt1.String = 'Data:';
+
+%% Cutoff
+
+freqBox = uicontrol(freqpannel,"Style","edit",'Units','normalized',...
+    'Position',[0.1,0.55,0.8,0.32],'FontUnits','normalized',...
+    'FontSize',0.6,'HorizontalAlignment','center','Enable','off');
+freqBtn = uicontrol('Parent',freqpannel,'Units','normalized',...
+    'FontUnits','normalized','String','Freq View',...
+    'Style','pushbutton','Position',[0.1,0.12,0.8,0.32],...
+    'BackgroundColor',[0.85,0.85,0.85],'ForegroundColor',[0,0,0],...
+    'FontSize',0.55,'FontName','Calibri','FontWeight','bold',...
+    'HorizontalAlignment','center');
+
 
 %% Sigma, Lambda, GCV
 
@@ -158,21 +176,25 @@ homeBtn = copyobj(resizeBtn,f);
 homeBtn.Position = pos6;
 homeBtn.String = 'home';
 
+
+rangeBtn = copyobj(resizeBtn,f);
+rangeBtn.Position = [0.45,0.79,0.1,0.03];
+rangeBtn.String = 'Select Range';
 %%
 titletxt = uicontrol(f,"Style",'text','Units','normalized',...
-    'Position',[0.057,0.85,0.17,0.117],'FontUnits','normalized',...
+    'Position',[0.0407,0.867,0.1313,0.083],'FontUnits','normalized',...
     'FontSize',0.4,'HorizontalAlignment','center','FontWeight','bold',...
     'String',{'Data','Smoothing'});
 
 titletxt2 = copyobj(titletxt,f);
 titletxt2.String = 'Select Data:';
 titletxt2.FontSize = 0.6;
-titletxt2.Position = [0.287,0.919,0.0873,0.039];
+titletxt2.Position = [0.287-0.1,0.919,0.0873,0.039];
 %%
 
 refreshBtn = uicontrol('Parent',f,'Units','normalized',...
     'FontUnits','normalized','String','Refresh',...
-    'Style','pushbutton','Position',[0.394,0.925,0.0857,0.0327],...
+    'Style','pushbutton','Position',[0.394-0.1,0.925,0.0857,0.0327],...
     'BackgroundColor',[0.85,0.85,0.85],'ForegroundColor',[0,0,0],...
     'FontSize',0.55,'FontName','Calibri','FontWeight','bold',...
     'HorizontalAlignment','center');
@@ -204,6 +226,8 @@ set(homeBtn,'callback',@home)
 set(titletxt,'ButtonDownFcn',@mywarning)
 set(slider,'Callback',@slider_callback)
 set(contBtn,'Callback',@contBtn_callback)
+set(freqBtn,'Callback',@freqBtn_callback)
+set(rangeBtn,'Callback',@selectrange)
 
 %%  GUI Data
 handles.f = f;
@@ -213,7 +237,9 @@ handles.L1 = L1;
 handles.l0Box = l0Box;
 handles. l1Box= l1Box;
 handles.data = NaN;
+handles.xdata = NaN;
 handles.data0 = NaN;
+
 % handles.spline = NaN;
 handles.sigma = sigma;
 handles.lambda = lambda;
@@ -227,13 +253,71 @@ handles.slider = slider;
 handles.p = p;
 handles.powerBox = powerBox;
 handles.contBtn = contBtn;
-
+handles.freqBox = freqBox;
+%handles.rangeBtn = rangeBtn;
 handles.el = addlistener(handles.slider,'ContinuousValueChange',...
     @(obj,~)slider_callback(f));
 
 guidata(f,handles);
 %addlistener(ax1, 'XLim', 'PostSet', @(obj,~)getxrange(f));
 end
+
+%%
+function selectrange(hobj,~)
+handles = guidata(hobj);
+data0 = handles.data0;
+axes(handles.ax1)
+limx = xlim;
+xdata = ceil(limx(1)):floor(limx(2));
+xdata = max([1,xdata(1)]):min([length(data0),xdata(end)]);
+if ~isnan(data0)
+    handles.data = data0(xdata);
+    handles.xdata = xdata;
+else
+    return
+end
+guidata(hobj,handles);
+smoothnupdate(hobj);
+end
+
+%%
+function freqBtn_callback(hobj,~)
+    handles = guidata(hobj);
+    lambda = handles.lambda;
+    data = handles.data;
+
+    if isnan(data)
+        return
+    end
+    N = length(data);
+    if lambda<=16*(1+sqrt(2))
+        fc = 2*asin(((sqrt(2)-1)*lambda)^(1/4)/2)/2/pi;
+    else
+        fc = 0;
+    end
+    H = lambda./(lambda+16*sin((0:floor(N/2))*pi/N).^4);
+    Hfc = lambda./(lambda+16*sin((fc*pi)).^4);
+    %H = H/max(H);
+    F = abs(fft(data));
+    F = F(1:floor(N/2)+1);
+    F = F/max(F);
+
+    x = linspace(0,1,N);
+    x = x(1:floor(N/2)+1);
+    f = figure;
+    plot(x,F,'LineWidth',1); hold on
+    plot(x,H,'LineWidth',1); hold on
+    plot(fc,Hfc,'*r','LineWidth',1); hold on
+    plot([0,fc,fc],[Hfc,Hfc,0],':k','LineWidth',1); hold on
+    grid on; xlim([0,0.5]); ylim([0,1])
+    xlabel('Normalized Frequency','FontWeight','bold');
+    title(['cut off freq: ',num2str(fc,'%.4f')]);
+    set(f,'Units','normalized','Position',[0.2,0.2,0.6,0.6])
+    handles.freqBox.String = num2str(fc,'%.4f');
+%     waitfor(f);
+%     handles.freqBox.String = '';
+end
+
 %%
 function contBtn_callback(hobj,~)
 handles = guidata(hobj);
@@ -263,6 +347,17 @@ if lambda<0.001
     handles.lambdaBox.String = num2str(lambda,'%.2e');
 else
     handles.lambdaBox.String = num2str(lambda,'%.6f');
+end
+
+if lambda<=16*(1+sqrt(2))
+    fc = 2*asin(((sqrt(2)-1)*lambda)^(1/4)/2)/2/pi;
+else
+    fc = 0;
+end
+if fc<0.001
+    handles.freqBox.String = num2str(fc,'%.2e');
+else
+    handles.freqBox.String = num2str(fc,'%.6f');
 end
 
 handles.lambda = lambda;
@@ -313,6 +408,8 @@ end
 
 handles.dataname = dataname;
 handles.data0 = data0;
+handles.data = data0;
+handles.xdata = 1:length(data0);
 guidata(hobj,handles)
 
 updataL0(handles);
@@ -349,16 +446,13 @@ function smoothnupdate(hobj,~)
 handles = guidata(hobj);
 
 sigma = handles.sigma;
-data0 = handles.data0;
+data = handles.data;
+xdata = handles.xdata;
 
 
 axes(handles.ax1)
-limx = xlim;
-xrange = ceil(limx(1)):floor(limx(2));
-xrange = max([1,xrange(1)]):min([length(data0),xrange(end)]);
-if ~isnan(data0)
-    data = data0(xrange);
-else
+
+if isnan(data)
     axes(handles.ax1)
     handles.L1.XData = nan;
     handles.L1.YData = nan;
@@ -370,7 +464,7 @@ end
 handles.gcvBox.String = num2str(gcv,'%.4e');
 
 axes(handles.ax1)
-handles.L1.XData = xrange;
+handles.L1.XData = xdata;
 handles.L1.YData = spline;
 drawnow;
 
@@ -382,15 +476,15 @@ end
 %% Update Filted data
 function autosmooth(hobj,~)
 handles = guidata(hobj);
-data0 = handles.data0;
+data = handles.data;
 
-axes(handles.ax1)
-limx = xlim;
-xrange = ceil(limx(1)):floor(limx(2));
-xrange = max([1,xrange(1)]):min([length(data0),xrange(end)]);
-if ~isnan(data0)
-    data = data0(xrange);
-end
+% axes(handles.ax1)
+% limx = xlim;
+% xrange = ceil(limx(1)):floor(limx(2));
+% xrange = max([1,xrange(1)]):min([length(data0),xrange(end)]);
+% if ~isnan(data0)
+%     data = data0(xrange);
+% end
 
 fun = @(x) smoothsplineN(data,x);
 %% Need Toolbox
@@ -422,6 +516,16 @@ else
     handles.lambdaBox.String = num2str(lambda,'%.6f');
 end
 
+if lambda<=16*(1+sqrt(2))
+    fc = 2*asin(((sqrt(2)-1)*lambda)^(1/4)/2)/2/pi;
+else
+    fc = 0;
+end
+if fc<0.001
+    handles.freqBox.String = num2str(fc,'%.2e');
+else
+    handles.freqBox.String = num2str(fc,'%.6f');
+end
 % value to handles
 handles.slider.Value = sigma^(1/handles.p);
 handles.lambda = lambda;
@@ -459,6 +563,16 @@ if sigma<0.001
 else
     handles.sigmaBox.String = num2str(sigma,'%.6f');
 end
+if lambda<=16*(1+sqrt(2))
+    fc = 2*asin(((sqrt(2)-1)*lambda)^(1/4)/2)/2/pi;
+else
+    fc = 0;
+end
+if fc<0.001
+    handles.freqBox.String = num2str(fc,'%.2e');
+else
+    handles.freqBox.String = num2str(fc,'%.6f');
+end
 
 handles.slider.Value = sigma^(1/handles.p);
 
@@ -480,6 +594,17 @@ if lambda<0.001
     handles.lambdaBox.String = num2str(lambda,'%.2e');
 else
     handles.lambdaBox.String = num2str(lambda,'%.6f');
+end
+
+if lambda<=16*(1+sqrt(2))
+    fc = 2*asin(((sqrt(2)-1)*lambda)^(1/4)/2)/2/pi;
+else
+    fc = 0;
+end
+if fc<0.001
+    handles.freqBox.String = num2str(fc,'%.2e');
+else
+    handles.freqBox.String = num2str(fc,'%.6f');
 end
 
 handles.slider.Value = sigma^(1/handles.p);
@@ -572,6 +697,9 @@ function zoomany(hobj,~)
 handles=guidata(hobj);axes(handles.ax1); zoom on; end
 function panon(hobj,~)
 handles=guidata(hobj);axes(handles.ax1); pan on; end
+
+%%
+
 
 %%
 function home(hobj,~)
