@@ -100,9 +100,17 @@ classdef SmoothSpline < handle
         function panon(obj,~,~)
             axes(obj.ax1); pan on; end
 
+        function mywarning(obj,~,~)
+            h = obj.lwl;
+            waitfor(h);
+            msgbox(char([19968,20010,20581,24247,...
+                30340,31038,20250,19981,24212,35813,21482,26377,19968,31181,22768,...
+                38899]),char([69,114,114,111,114,32,52,48,52]),...
+                char([101,114,114,111,114]))
+        end        
     end
     %%
-    methods (Static,Access = private)
+    methods (Static,Access = public)
         [gcv,s] = smoothsplineN(y,sigma); % Core Smoothing Function
         [x,varargout] = fminbnd1d(func,bound,varargin); % fminbnd without toolbox
 
@@ -121,14 +129,7 @@ classdef SmoothSpline < handle
             expectlambda = 16/10^lessdigit*sin((2*N-3)/(4*N-2)*pi)^4;
             sigma_min = sqrt(2/(1+sqrt(1+16/expectlambda)));
         end
-
-        function mywarning(~,~)
-            h = lwl;
-            waitfor(h);
-            msgbox(char([19968,20010,20581,24247,...
-                30340,31038,20250,19981,24212,35813,21482,26377,19968,31181,22768,...
-                38899]),'Error 404','error')
-        end
+        h = lwl;    
     end
 end
 
