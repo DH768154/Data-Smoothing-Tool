@@ -197,7 +197,7 @@ obj.contBtn = uicontrol('Parent',obj.f,'Units','normalized',...
 set(obj.f,'ButtonDownFcn',@obj.refresh)
 set(obj.f,'CloseRequestFcn',@obj.closefig)
 
-set(obj.menuBox,'callback',@obj.menoBox_callback);
+set(obj.menuBox,'callback',@obj.menuBox_callback);
 set(obj.lambdaBox,'callback',@obj.lambdaBox_callback);
 set(obj.sigmaBox,'callback',@obj.sigmaBox_callback);
 set(obj.powerBox,'callback',@obj.powerBox_callback);
